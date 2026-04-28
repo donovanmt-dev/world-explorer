@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Explorer — Expressions &amp; Equations</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0010;font-family:'Press Start 2P',monospace;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px 10px 40px}
+
+  /* CRT scanline overlay */
+  body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;z-index:999}
+
+  .cabinet{width:100%;max-width:680px}
+
+  /* ── HEADER ── */
+  .hdr{background:#0d0020;border:3px solid #ff00ff;border-bottom:none;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+  .logo{font-size:13px;color:#ff00ff;letter-spacing:2px;line-height:1.8}
+  .logo small{display:block;font-size:7px;color:#00ffff;letter-spacing:1px;margin-top:4px}
+  .hud{display:flex;gap:20px}
+  .hud-item{text-align:center}
+  .hud-label{font-size:7px;color:#ff00ff;letter-spacing:1px}
+  .hud-val{font-size:15px;color:#ffff00;margin-top:3px}
+
+  /* ── MARQUEE TICKER ── */
+  .ticker{background:#0d0020;border:3px solid #ff00ff;border-bottom:none;border-top:none;overflow:hidden;padding:6px 0}
+  .ticker-inner{white-space:nowrap;display:inline-block;animation:scroll 20s linear infinite;font-size:7px;color:#00ffff;letter-spacing:1px}
+  @keyframes scroll{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
+
+  /* ── MAIN PANEL ── */
+  .panel{background:#0d0020;border:3px solid #ff00ff;padding:24px 22px;min-height:420px}
+
+  /* ── SCREENS ── */
+  .screen{display:none}
+  .screen.active{display:block}
+
+  /* START */
+  .start-center{text-align:center}
+  .game-title{font-size:20px;color:#ffff00;letter-spacing:3px;margin-bottom:6px}
+  .game-sub{font-size:8px;color:#ff00ff;letter-spacing:1px;margin-bottom:22px}
+  .blink{animation:blink 1s step-end infinite}
+  @keyframes blink{50%{opacity:0}}
+  .topic-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 auto 22px;max-width:480px;text-align:left}
+  .topic-card{border:1px solid #ff00ff;background:#0a0015;padding:8px 10px}
+  .topic-stage{font-size:7px;color:#ffff00;margin-bottom:3px}
+  .topic-name{font-size:7px;color:#ff00ff;opacity:.8}
+  .lives-display{display:flex;gap:8px;justify-content:center;margin-bottom:20px}
+  .heart{width:16px;height:16px;background:#ff0055;clip-path:polygon(50% 15%,65% 5%,80% 5%,95% 20%,95% 40%,50% 90%,5% 40%,5% 20%,20% 5%,35% 5%)}
+  .heart.empty{background:#333}
+
+  /* MAP */
+  .map-title{font-size:8px;color:#ff00ff;letter-spacing:1px;text-align:center;margin-bottom:14px}
+  .region-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}
+  .reg{border:2px solid #444;padding:10px 4px;text-align:center;cursor:pointer;background:#0a0015;transition:all .15s;font-family:'Press Start 2P',monospace}
+  .reg:hover:not(.locked){border-color:#ff00ff;background:#180028}
+  .reg.done{border-color:#00ff88;background:#001a10}
+  .reg.locked{opacity:.3;cursor:not-allowed}
+  .reg-icon{font-size:16px;display:block;margin-bottom:4px}
+  .reg-name{font-size:6px;color:#ccc;display:block;margin-bottom:3px}
+  .reg-stars{font-size:9px;color:#ffff00;display:block;min-height:12px}
+  .reg-bar{height:3px;background:#222;margin-top:5px}
+  .reg-bar-fill{height:100%;background:#00ff88;transition:width .3s}
+  .map-hint{font-size:7px;color:#444;text-align:center}
+
+  /* QUESTION */
+  .q-progress{display:flex;gap:4px;align-items:center;margin-bottom:14px}
+  .q-seg{height:6px;flex:1;background:#222;border:1px solid #444}
+  .q-seg.done{background:#ff00ff;border-color:#ff00ff}
+  .q-count{font-size:7px;color:#555;min-width:28px;text-align:right}
+  .q-card{border:2px solid #ff00ff;background:#0a0015;padding:16px}
+  .q-tag{display:inline-block;background:#ff00ff;color:#0a0010;font-size:7px;padding:3px 8px;letter-spacing:1px;margin-bottom:8px}
+  .q-loc{font-size:7px;color:#00ffff;margin-bottom:10px;letter-spacing:.5px}
+  .q-text{font-size:12px;color:#ffff00;line-height:1.9;margin-bottom:14px;white-space:pre-line}
+  .q-hint-box{font-size:8px;color:#888;border-left:2px solid #ff00ff;padding:5px 10px;margin-bottom:14px;background:#0a0018;display:none}
+  .choices{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .choice{font-family:'Press Start 2P',monospace;border:2px solid #555;background:#0a0010;color:#fff;padding:11px 8px;font-size:11px;cursor:pointer;transition:all .12s;letter-spacing:.5px}
+  .choice:hover:not(:disabled){border-color:#ffff00;color:#ffff00;background:#0d0020}
+  .choice.correct{border-color:#00ff88!important;color:#00ff88!important;background:#001a10!important;animation:flash-good .3s}
+  .choice.wrong{border-color:#ff0055!important;color:#ff0055!important;background:#1a0010!important;animation:shake .3s}
+  @keyframes flash-good{0%,100%{background:#001a10}50%{background:#003020}}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  .feedback{font-size:8px;padding:8px 10px;line-height:1.7;display:none;margin-bottom:10px}
+  .feedback.good{border:1px solid #00ff88;color:#00ff88;background:#001a10}
+  .feedback.bad{border:1px solid #ff0055;color:#ff0055;background:#1a0010}
+  .btn-row{display:flex;gap:8px;margin-top:4px}
+
+  /* WIN / GAME OVER */
+  .end-center{text-align:center;padding:10px 0}
+  .end-icon{font-size:40px;margin-bottom:10px}
+  .end-title{font-size:18px;color:#ffff00;letter-spacing:2px;margin-bottom:8px}
+  .end-sub{font-size:8px;color:#00ffff;margin-bottom:16px;letter-spacing:1px}
+  .stat-row{display:flex;gap:10px;justify-content:center;margin-bottom:18px}
+  .stat-box{border:1px solid #ff00ff;padding:10px 14px;background:#0d0020;text-align:center}
+  .stat-n{font-size:22px;color:#ffff00}
+  .stat-l{font-size:7px;color:#ff00ff;margin-top:4px}
+
+  /* BUTTONS */
+  .px-btn{font-family:'Press Start 2P',monospace;cursor:pointer;border:2px solid;padding:10px 18px;font-size:9px;transition:all .1s;background:#0a0010;letter-spacing:.5px}
+  .px-btn:active{transform:scale(.95)}
+  .btn-pink{color:#ff00ff;border-color:#ff00ff}.btn-pink:hover{background:#ff00ff;color:#0a0010}
+  .btn-cyan{color:#00ffff;border-color:#00ffff}.btn-cyan:hover{background:#00ffff;color:#0a0010}
+  .btn-yellow{color:#ffff00;border-color:#ffff00}.btn-yellow:hover{background:#ffff00;color:#0a0010}
+
+  /* SCORE POP */
+  .score-pop{position:fixed;font-size:11px;color:#ffff00;font-family:'Press Start 2P',monospace;pointer-events:none;animation:pop-up .8s ease-out forwards;z-index:9999}
+  @keyframes pop-up{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-50px)}}
+</style>
+</head>
+<body>
+<div class="cabinet">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="logo">WORLD EXPLORER<small>expressions &amp; equations — grade 7</small></div>
+    <div class="hud" id="hud" style="display:none">
+      <div class="hud-item"><div class="hud-label">SCORE</div><div class="hud-val" id="hv-score">000000</div></div>
+      <div class="hud-item"><div class="hud-label">STAGE</div><div class="hud-val" id="hv-stage">--</div></div>
+      <div class="hud-item"><div class="hud-label">LIVES</div><div class="hud-val" id="hv-lives">♥♥♥</div></div>
+    </div>
+  </div>
+
+  <!-- TICKER -->
+  <div class="ticker">
+    <span class="ticker-inner">★ SIMPLIFYING EXPRESSIONS ★ COMBINING LIKE TERMS ★ ONE-STEP EQUATIONS ★ TWO-STEP EQUATIONS ★ DISTRIBUTIVE PROPERTY ★ 5 STAGES ★ 25 QUESTIONS ★ CAN YOU CONQUER THE WORLD? ★</span>
+  </div>
+
+  <!-- MAIN PANEL -->
+  <div class="panel">
+
+    <!-- ── START SCREEN ── -->
+    <div class="screen active" id="s-start">
+      <div class="start-center">
+        <div class="game-title">WORLD EXPLORER</div>
+        <div class="game-sub">7TH GRADE MATH QUEST</div>
+        <div style="font-size:9px;color:#ffff00;margin-bottom:20px" class="blink">— PRESS START —</div>
+        <div class="topic-grid">
+          <div class="topic-card"><div class="topic-stage">STAGE 1 — AMERICAS</div><div class="topic-name">Simplifying Expressions</div></div>
+          <div class="topic-card"><div class="topic-stage">STAGE 2 — EUROPE</div><div class="topic-name">Combining Like Terms</div></div>
+          <div class="topic-card"><div class="topic-stage">STAGE 3 — AFRICA</div><div class="topic-name">One-Step Equations</div></div>
+          <div class="topic-card"><div class="topic-stage">STAGE 4 — ASIA</div><div class="topic-name">Two-Step Equations</div></div>
+          <div class="topic-card" style="grid-column:1/-1;max-width:240px;margin:0 auto"><div class="topic-stage">STAGE 5 — OCEANIA</div><div class="topic-name">Distributive Property</div></div>
+        </div>
+        <div class="lives-display" id="start-hearts"></div>
+        <button class="px-btn btn-pink" style="font-size:11px;padding:14px 32px" onclick="startGame()">▶ START GAME</button>
+      </div>
+    </div>
+
+    <!-- ── MAP SCREEN ── -->
+    <div class="screen" id="s-map">
+      <div class="map-title">&gt;&gt; SELECT YOUR STAGE &lt;&lt;</div>
+      <div class="region-grid" id="reg-grid"></div>
+      <div class="map-hint">choose any stage to begin</div>
+    </div>
+
+    <!-- ── QUESTION SCREEN ── -->
+    <div class="screen" id="s-q">
+      <div class="q-progress" id="q-progress"></div>
+      <div class="q-card">
+        <div class="q-tag" id="q-tag">STAGE</div>
+        <div class="q-loc" id="q-loc">&gt;&gt; Loading...</div>
+        <div class="q-text" id="q-text">?</div>
+        <div class="q-hint-box" id="q-hint"></div>
+        <div class="choices" id="choices"></div>
+        <div class="feedback" id="feedback"></div>
+        <div class="btn-row">
+          <button class="px-btn btn-cyan" id="next-btn" style="display:none;flex:1" onclick="nextQ()">NEXT &gt;&gt;</button>
+          <button class="px-btn btn-yellow" id="hint-btn" onclick="useHint()" style="font-size:8px;padding:10px 14px">HINT?</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── WIN SCREEN ── -->
+    <div class="screen" id="s-win">
+      <div class="end-center">
+        <div class="end-icon">★</div>
+        <div class="end-title">YOU WIN!</div>
+        <div class="end-sub">ALL 5 STAGES CLEARED!</div>
+        <div class="stat-row">
+          <div class="stat-box"><div class="stat-n" id="w-score">0</div><div class="stat-l">SCORE</div></div>
+          <div class="stat-box"><div class="stat-n" id="w-correct">0</div><div class="stat-l">CORRECT</div></div>
+          <div class="stat-box"><div class="stat-n" id="w-lives">0</div><div class="stat-l">LIVES LEFT</div></div>
+        </div>
+        <button class="px-btn btn-pink" onclick="resetGame()">▶ PLAY AGAIN</button>
+      </div>
+    </div>
+
+    <!-- ── GAME OVER SCREEN ── -->
+    <div class="screen" id="s-over">
+      <div class="end-center">
+        <div class="end-icon" style="color:#ff0055">✗</div>
+        <div class="end-title" style="color:#ff0055">GAME OVER</div>
+        <div class="end-sub">OUT OF LIVES</div>
+        <div class="stat-row">
+          <div class="stat-box"><div class="stat-n" id="go-score">0</div><div class="stat-l">SCORE</div></div>
+        </div>
+        <button class="px-btn btn-pink" onclick="resetGame()">▶ TRY AGAIN</button>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+</div><!-- /cabinet -->
+
+<script>
+const REGIONS = ['americas','europe','africa','asia','oceania'];
+const RMETA = {
+  americas:{name:'AMERICAS',icon:'★'},
+  europe:{name:'EUROPE',icon:'♦'},
+  africa:{name:'AFRICA',icon:'●'},
+  asia:{name:'ASIA',icon:'▲'},
+  oceania:{name:'OCEANIA',icon:'◆'}
+};
+
+const QS = {
+  americas:[
+    {loc:'AMAZON RAINFOREST, BRAZIL',tag:'SIMPLIFY',q:'Simplify:\n3x + 5x',hint:'Both terms have x — add the coefficients.',c:['8x','8x²','15x','3x+5'],a:0,ex:'3 + 5 = 8, so 3x + 5x = 8x'},
+    {loc:'ROCKY MOUNTAINS, USA',tag:'SIMPLIFY',q:'Simplify:\n4y − y',hint:'Remember: y means 1y.',c:['4','3y','5y','3'],a:1,ex:'4y − 1y = 3y'},
+    {loc:'MACHU PICCHU, PERU',tag:'EVALUATE',q:'Evaluate 2x + 3\nwhen x = 4',hint:'Substitute x = 4 into the expression.',c:['11','9','14','10'],a:0,ex:'2(4) + 3 = 8 + 3 = 11'},
+    {loc:'NIAGARA FALLS, CANADA',tag:'SIMPLIFY',q:'Simplify:\n6a + 2b − 2a + b',hint:'Group a-terms together, then b-terms.',c:['4a + 3b','8a + 3b','4a + b','4ab'],a:0,ex:'(6a−2a) + (2b+b) = 4a + 3b'},
+    {loc:'GALAPAGOS ISLANDS',tag:'EVALUATE',q:'Evaluate 5n − 7\nwhen n = 3',hint:'Plug n = 3 into the expression.',c:['22','8','2','15'],a:1,ex:'5(3) − 7 = 15 − 7 = 8'}
+  ],
+  europe:[
+    {loc:'EIFFEL TOWER, FRANCE',tag:'LIKE TERMS',q:'Which pair are like terms?\n4x²   6x   9y   2x²',hint:'Like terms must share the same variable AND exponent.',c:['4x² and 2x²','6x and 2x²','9y and 6x','4x² and 6x'],a:0,ex:'4x² and 2x² both have x² — same variable, same exponent.'},
+    {loc:'COLOSSEUM, ROME',tag:'COMBINE',q:'Simplify:\n7m + 4 − 3m − 1',hint:'Separate m-terms from the constants.',c:['4m + 3','10m + 5','4m + 5','4m − 3'],a:0,ex:'(7m−3m) + (4−1) = 4m + 3'},
+    {loc:'STONEHENGE, ENGLAND',tag:'DISTRIBUTE',q:'Expand and simplify:\n2(x + 3) + x',hint:'Distribute the 2 first, then combine like terms.',c:['3x + 6','3x + 3','2x + 6','3x + 5'],a:0,ex:'2x + 6 + x = 3x + 6'},
+    {loc:'ACROPOLIS, GREECE',tag:'LIKE TERMS',q:'How many pairs of like terms?\n5x + 3y + 2x + y',hint:'Look for matching variables.',c:['2 pairs','1 pair','4 pairs','0 pairs'],a:0,ex:'5x & 2x = pair 1  |  3y & y = pair 2'},
+    {loc:'SAGRADA FAMILIA, SPAIN',tag:'COMBINE',q:'Simplify:\n4k + 9 − k − 4',hint:'Combine k-terms first, then constants.',c:['3k + 5','5k + 5','3k + 13','3k − 5'],a:0,ex:'(4k−k) + (9−4) = 3k + 5'}
+  ],
+  africa:[
+    {loc:'PYRAMIDS OF GIZA, EGYPT',tag:'SOLVE',q:'Solve for x:\nx + 6 = 15',hint:'Subtract 6 from both sides.',c:['x = 9','x = 21','x = 6','x = 10'],a:0,ex:'x = 15 − 6 = 9   Check: 9 + 6 = 15 ✓'},
+    {loc:'SERENGETI, TANZANIA',tag:'SOLVE',q:'Solve for y:\ny − 4 = 11',hint:'Add 4 to both sides.',c:['y = 7','y = 44','y = 15','y = 8'],a:2,ex:'y = 11 + 4 = 15   Check: 15 − 4 = 11 ✓'},
+    {loc:'VICTORIA FALLS, ZAMBIA',tag:'SOLVE',q:'Solve for n:\n3n = 21',hint:'Divide both sides by 3.',c:['n = 7','n = 18','n = 63','n = 24'],a:0,ex:'n = 21 ÷ 3 = 7   Check: 3(7) = 21 ✓'},
+    {loc:'MT. KILIMANJARO',tag:'SOLVE',q:'Solve for m:\nm ÷ 4 = 9',hint:'Multiply both sides by 4.',c:['m = 36','m = 13','m = 2','m = 4'],a:0,ex:'m = 9 × 4 = 36   Check: 36 ÷ 4 = 9 ✓'},
+    {loc:'SAHARA DESERT, MOROCCO',tag:'SOLVE',q:'Solve for p:\np + 14 = 14',hint:'What number plus 14 equals 14?',c:['p = 28','p = 1','p = 0','p = 14'],a:2,ex:'p = 14 − 14 = 0   Check: 0 + 14 = 14 ✓'}
+  ],
+  asia:[
+    {loc:'GREAT WALL OF CHINA',tag:'2-STEP',q:'Solve for x:\n2x + 5 = 17',hint:'Step 1: subtract 5 from both sides.\nStep 2: divide by 2.',c:['x = 6','x = 7','x = 11','x = 4'],a:0,ex:'2x = 12,  x = 6   Check: 2(6)+5 = 17 ✓'},
+    {loc:'MOUNT FUJI, JAPAN',tag:'2-STEP',q:'Solve for y:\n3y − 4 = 11',hint:'Step 1: add 4 to both sides.\nStep 2: divide by 3.',c:['y = 5','y = 7','y = 3','y = 9'],a:0,ex:'3y = 15,  y = 5   Check: 3(5)−4 = 11 ✓'},
+    {loc:'TAJ MAHAL, INDIA',tag:'2-STEP',q:'Solve for n:\nn/3 + 2 = 7',hint:'Step 1: subtract 2 from both sides.\nStep 2: multiply by 3.',c:['n = 15','n = 27','n = 9','n = 5'],a:0,ex:'n/3 = 5,  n = 15   Check: 15/3+2 = 7 ✓'},
+    {loc:'ANGKOR WAT, CAMBODIA',tag:'2-STEP',q:'Solve for k:\n5k + 3 = 28',hint:'Step 1: subtract 3.\nStep 2: divide by 5.',c:['k = 5','k = 6','k = 25','k = 7'],a:0,ex:'5k = 25,  k = 5   Check: 5(5)+3 = 28 ✓'},
+    {loc:'MT. EVEREST BASE CAMP',tag:'2-STEP',q:'Solve for w:\n4w − 7 = 13',hint:'Step 1: add 7 to both sides.\nStep 2: divide by 4.',c:['w = 5','w = 1','w = 6','w = 20'],a:0,ex:'4w = 20,  w = 5   Check: 4(5)−7 = 13 ✓'}
+  ],
+  oceania:[
+    {loc:'SYDNEY OPERA HOUSE',tag:'DISTRIBUTE',q:'Expand:\n3(x + 4)',hint:'Multiply 3 by each term inside the parentheses.',c:['3x + 12','3x + 4','x + 12','3x + 7'],a:0,ex:'3·x + 3·4 = 3x + 12'},
+    {loc:'GREAT BARRIER REEF',tag:'DISTRIBUTE',q:'Expand:\n2(5 − y)',hint:'Multiply 2 by 5, then 2 by y.',c:['10 − 2y','10 − y','7 − 2y','10 + 2y'],a:0,ex:'2·5 − 2·y = 10 − 2y'},
+    {loc:'ULURU, AUSTRALIA',tag:'DISTRIBUTE',q:'Expand:\n4(2x + 3)',hint:'Multiply 4 by 2x, then 4 by 3.',c:['8x + 12','6x + 7','8x + 3','2x + 12'],a:0,ex:'4·2x + 4·3 = 8x + 12'},
+    {loc:'MILFORD SOUND, NZ',tag:'DISTRIBUTE',q:'Solve for x:\n2(x + 5) = 16',hint:'Distribute first, then solve the equation.',c:['x = 3','x = 8','x = 6','x = 11'],a:0,ex:'2x + 10 = 16  →  2x = 6  →  x = 3'},
+    {loc:'HOBBITON, NEW ZEALAND',tag:'DISTRIBUTE',q:'Solve for x:\n3(2x − 1) = 15',hint:'Distribute first: 6x − 3 = 15, then solve.',c:['x = 3','x = 5','x = 2','x = 6'],a:0,ex:'6x − 3 = 15  →  6x = 18  →  x = 3'}
+  ]
+};
+
+// ── STATE ──
+let score=0, lives=3, curRegion='', curQ=0, answered=false, hintUsed=false;
+let progress={americas:0,europe:0,africa:0,asia:0,oceania:0};
+let done={americas:false,europe:false,africa:false,asia:false,oceania:false};
+let totalCorrect=0;
+
+function pad6(n){return String(n).padStart(6,'0')}
+function livesStr(){return '♥'.repeat(Math.max(0,lives))+'♡'.repeat(Math.max(0,3-lives))}
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startGame(){
+  score=0; lives=3; totalCorrect=0;
+  REGIONS.forEach(r=>{progress[r]=0; done[r]=false;});
+  document.getElementById('hud').style.display='flex';
+  updateHUD();
+  buildMap();
+  show('s-map');
+}
+
+function updateHUD(){
+  document.getElementById('hv-score').textContent=pad6(score);
+  document.getElementById('hv-stage').textContent=curRegion?(REGIONS.indexOf(curRegion)+1)+'-'+(curQ+1):'--';
+  document.getElementById('hv-lives').textContent=livesStr();
+}
+
+function buildMap(){
+  const g=document.getElementById('reg-grid');
+  g.innerHTML='';
+  REGIONS.forEach((rid,i)=>{
+    const unlocked=true;
+    const isDone=done[rid];
+    const prog=progress[rid];
+    const total=QS[rid].length;
+    const div=document.createElement('div');
+    div.className='reg'+(isDone?' done':'')+(!unlocked?' locked':'');
+    const stars=isDone?'★★★':prog>0?'★'.repeat(Math.min(3,Math.floor(prog/total*3+1))):'';
+    div.innerHTML=`<span class="reg-icon">${RMETA[rid].icon}</span><span class="reg-name">${RMETA[rid].name}</span><span class="reg-stars">${stars||'&nbsp;'}</span><div class="reg-bar"><div class="reg-bar-fill" style="width:${Math.round(prog/total*100)}%"></div></div>`;
+    if(unlocked) div.onclick=()=>selectRegion(rid);
+    g.appendChild(div);
+  });
+}
+
+function selectRegion(rid){
+  curRegion=rid;
+  curQ=done[rid]?0:(progress[rid]<QS[rid].length?progress[rid]:0);
+  loadQ();
+  show('s-q');
+  updateHUD();
+}
+
+function buildProgressStrip(){
+  const strip=document.getElementById('q-progress');
+  const total=QS[curRegion].length;
+  strip.innerHTML='';
+  for(let i=0;i<total;i++){
+    const seg=document.createElement('div');
+    seg.className='q-seg'+(i<progress[curRegion]?' done':'');
+    strip.appendChild(seg);
+  }
+  const lbl=document.createElement('div');
+  lbl.className='q-count';
+  lbl.textContent=(curQ+1)+'/'+total;
+  strip.appendChild(lbl);
+}
+
+function loadQ(){
+  answered=false; hintUsed=false;
+  const q=QS[curRegion][curQ];
+  document.getElementById('q-tag').textContent=q.tag;
+  document.getElementById('q-loc').textContent='>> '+q.loc;
+  document.getElementById('q-text').textContent=q.q;
+  const hintEl=document.getElementById('q-hint');
+  hintEl.style.display='none';
+  hintEl.textContent='HINT: '+q.hint;
+  const fb=document.getElementById('feedback');
+  fb.className='feedback'; fb.style.display='none';
+  document.getElementById('next-btn').style.display='none';
+  document.getElementById('hint-btn').style.display='inline-block';
+  const ch=document.getElementById('choices');
+  ch.innerHTML='';
+  q.c.forEach((txt,i)=>{
+    const b=document.createElement('button');
+    b.className='choice';
+    b.textContent=txt;
+    b.onclick=()=>answer(i,b);
+    ch.appendChild(b);
+  });
+  buildProgressStrip();
+  updateHUD();
+}
+
+function useHint(){
+  document.getElementById('q-hint').style.display='block';
+  document.getElementById('hint-btn').style.display='none';
+  hintUsed=true;
+}
+
+function answer(idx,btn){
+  if(answered) return;
+  answered=true;
+  const q=QS[curRegion][curQ];
+  const correct=idx===q.a;
+  document.querySelectorAll('.choice').forEach(b=>b.disabled=true);
+  if(correct){
+    btn.classList.add('correct');
+    const pts=hintUsed?50:100;
+    score+=pts; totalCorrect++;
+    progress[curRegion]=Math.max(progress[curRegion],curQ+1);
+    showFeedback(true,'CORRECT! +'+pts+' PTS   '+q.ex);
+    scorePopup('+'+pts, btn);
+  } else {
+    btn.classList.add('wrong');
+    document.querySelectorAll('.choice')[q.a].classList.add('correct');
+    lives=Math.max(0,lives-1);
+    showFeedback(false,'WRONG!   CORRECT: '+q.c[q.a]+'   '+q.ex);
+  }
+  updateHUD();
+  document.getElementById('next-btn').style.display='block';
+  if(lives===0){
+    setTimeout(()=>{
+      document.getElementById('go-score').textContent=pad6(score);
+      document.getElementById('hud').style.display='none';
+      show('s-over');
+    },1500);
+  }
+}
+
+function showFeedback(good,msg){
+  const fb=document.getElementById('feedback');
+  fb.textContent=msg;
+  fb.className='feedback '+(good?'good':'bad');
+  fb.style.display='block';
+}
+
+function scorePopup(txt,btn){
+  const r=btn.getBoundingClientRect();
+  const pop=document.createElement('div');
+  pop.className='score-pop';
+  pop.textContent=txt;
+  pop.style.left=(r.left+r.width/2-20)+'px';
+  pop.style.top=(r.top+window.scrollY-10)+'px';
+  document.body.appendChild(pop);
+  setTimeout(()=>pop.remove(),850);
+}
+
+function nextQ(){
+  if(lives===0) return;
+  const total=QS[curRegion].length;
+  if(curQ+1>=total){
+    done[curRegion]=true;
+    const allDone=REGIONS.every(r=>done[r]);
+    if(allDone){
+      document.getElementById('w-score').textContent=pad6(score);
+      document.getElementById('w-correct').textContent=totalCorrect;
+      document.getElementById('w-lives').textContent=lives;
+      document.getElementById('hud').style.display='none';
+      show('s-win');
+    } else {
+      buildMap();
+      show('s-map');
+    }
+  } else {
+    curQ++;
+    loadQ();
+  }
+}
+
+function resetGame(){
+  score=0; lives=3; curRegion=''; curQ=0; totalCorrect=0;
+  REGIONS.forEach(r=>{progress[r]=0; done[r]=false;});
+  document.getElementById('hud').style.display='none';
+  show('s-start');
+}
+
+// Build start hearts
+const sh=document.getElementById('start-hearts');
+for(let i=0;i<3;i++){const h=document.createElement('div');h.className='heart';sh.appendChild(h);}
+</script>
+</body>
+</html>
